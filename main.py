@@ -8,13 +8,19 @@ def input_error(func):
             return "Invalid input. Please enter a name and phone number."
         except IndexError:
             return "Enter user name and phone number."
+        except TypeError:
+            return "Invalid input types. Name should be a string and phone number should be a number."
     return inner
 
 def add_contact(contacts, name, phone):
+    if not isinstance(name, str) or not (isinstance(phone, int) or phone.isdigit()):
+        raise TypeError
     contacts[name] = phone
     return f"Contact {name} added successfully."
 
 def change_phone(contacts, name, phone):
+    if not isinstance(name, str) or not (isinstance(phone, int) or phone.isdigit()):
+        raise TypeError
     if name in contacts:
         contacts[name] = phone
         return f"Phone number for {name} changed successfully."
