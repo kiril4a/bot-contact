@@ -45,7 +45,7 @@ def handle_command(command, contacts=None):
 
     if cmd == "hello":
         return "How can I help you?"
-    elif cmd in ["add", "change", "phone"] and len(parts) != 3:
+    elif cmd in ["add", "change"] and len(parts) != 3:
         raise ValueError("Invalid input. Please enter command, name and phone number.")
     elif cmd == "add":
         return add_contact(contacts, parts[1], parts[2])
