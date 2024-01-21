@@ -109,6 +109,7 @@ def show_all(address_book):
     return "\n".join([f"{name}: {', '.join([phone.value for phone in record.phones])}" 
                       for name, record in address_book.items()])
 
+
 def delete_contact(address_book, name):
     if not isinstance(name, str):
         raise TypeError
