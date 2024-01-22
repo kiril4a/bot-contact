@@ -82,7 +82,8 @@ def add_contact(address_book, name, phone):
         address_book[name].add_phone(phone)
         return f"Phone number added to contact {name}."
     else:
-        address_book.add_record(name, [phone])
+        record = Record(name, [phone])
+        address_book.add_record(record)
         return f"Contact {name} added successfully."
 
 def change_phone(address_book, name, phone):
