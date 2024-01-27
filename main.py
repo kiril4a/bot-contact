@@ -4,10 +4,19 @@ from datetime import datetime, timedelta
 
 class Field:
     def __init__(self, value):
-        self.value = value
+        self._value = value  # Приватне поле для зберігання значення
+
+    @property
+    def value(self):
+        return self._value
+
+    @value.setter
+    def value(self, new_value):
+        self._value = new_value
 
 class Name(Field):
     pass
+
 class Birthday(Field):
     def __init__(self, value):
         super().__init__(value)
@@ -15,18 +24,30 @@ class Birthday(Field):
 
     def validate(self):
         try:
-            datetime.strptime(self.value, '%Y-%m-%d')
+            datetime.strptime(self._value, '%Y-%m-%d')
         except ValueError:
             raise ValueError("Invalid date format. Please use YYYY-MM-DD.")
-        
+
+    # Додавання setter для полегшення встановлення значення
+    @Field.value.setter
+    def value(self, new_value):
+        self._value = new_value
+        self.validate()
+
 class Phone(Field):
     def __init__(self, value):
         super().__init__(value)
         self.validate()
 
     def validate(self):
-        if not re.fullmatch(r"\d{10}", self.value):
+        if not re.fullmatch(r"\d{10}", self._value):
             raise ValueError("Phone number must have 10 digits")
+
+    # Додавання setter для полегшення встановлення значення
+    @Field.value.setter
+    def value(self, new_value):
+        self._value = new_value
+        self.validate()
 
 class Record:
     def __init__(self, name, phones=None, birthday=None):
@@ -214,6 +235,8 @@ def handle_command(command, contacts=None):
             return show_all(contacts, page)
         except ValueError:
             return "Invalid page number. Please enter an integer."
+    elif cmd == "show" and len(parts) == 2:
+        return "Please enter page number."
     else: 
         return "Unknown command."
 
