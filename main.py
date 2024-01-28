@@ -1,37 +1,41 @@
 import re
 from collections import UserDict
-from datetime import datetime, timedelta
 
 class Field:
     def __init__(self, value):
-        self._value = value  # Приватне поле для зберігання значення
+        self.__value = value
 
     @property
     def value(self):
-        return self._value
+        return self.__value
 
     @value.setter
     def value(self, new_value):
-        self._value = new_value
+        self.validate(new_value)
+        self.__value = new_value
+
+    @staticmethod
+    def validate(value):
+        pass  # Implement validation logic in subclasses
 
 class Name(Field):
     pass
 
 class Birthday(Field):
     def __init__(self, value):
-        super().__init__(value)
+        self.__value = value
         self.validate()
+        super().__init__(value)
 
     def validate(self):
         try:
-            datetime.strptime(self._value, '%Y-%m-%d')
+            datetime.strptime(self.__value, '%Y-%m-%d')
         except ValueError:
             raise ValueError("Invalid date format. Please use YYYY-MM-DD.")
 
-    # Додавання setter для полегшення встановлення значення
     @Field.value.setter
     def value(self, new_value):
-        self._value = new_value
+        self.__value = new_value
         self.validate()
 
 class Phone(Field):
@@ -40,14 +44,14 @@ class Phone(Field):
         self.validate()
 
     def validate(self):
-        if not re.fullmatch(r"\d{10}", self._value):
+        if not re.fullmatch(r"\d{10}", self.value):
             raise ValueError("Phone number must have 10 digits")
 
-    # Додавання setter для полегшення встановлення значення
     @Field.value.setter
     def value(self, new_value):
-        self._value = new_value
+        self.__value = new_value
         self.validate()
+
 
 class Record:
     def __init__(self, name, phones=None, birthday=None):
@@ -65,16 +69,12 @@ class Record:
                 return True
         return False
 
-    def edit_phone(self, new_phone, new_birthday=None):
-        if not self.phones:
-            raise ValueError("No existing phone number for this contact.")
-        
-        self.phones[0].value = Phone(new_phone).value
-
-        if new_birthday:
-            self.birthday = Birthday(new_birthday)
-
-        return True
+    def edit_phone(self, old_phone, new_phone):
+        for p in self.phones:
+            if p.value == old_phone:
+                p.value = Phone(new_phone).value
+                return True
+        raise ValueError("The old phone number does not exist.")
 
     def find_phone(self, phone):
         for p in self.phones:
@@ -93,13 +93,17 @@ class Record:
         return None
 
 class AddressBook(UserDict):
-    def __init__(self):
+    def __init__(self, page_size=5):
         super().__init__()
-        self.page_size = 5
+        self.page_size = page_size
 
-    def iterator(self):
-        for i in range(0, len(self.data), self.page_size):
-            yield list(self.data.values())[i:i+self.page_size]
+    def __iter__(self):
+        return self.paginated_iterator()
+
+    def paginated_iterator(self):
+        values = list(self.data.values())
+        for i in range(0, len(values), self.page_size):
+            yield values[i:i + self.page_size]
 
     def add_record(self, record):
         if isinstance(record, Record):
@@ -126,62 +130,50 @@ def input_error(func):
             return str(e)
         except IndexError:
             return "Enter user name and phone number."
-        except TypeError:
-            return "Invalid input types. Name should be a string and phone number should be a number or a string of digits."
+        except TypeError as e:
+            return str(e)
     return inner
 
-def add_contact(address_book, name, phone, birthday=None):
+
+
+def add_contact(address_book, name, phone):
     if not isinstance(name, str) or not (isinstance(phone, str) and phone.isdigit()):
         raise TypeError("Invalid input types. Name should be a string and phone number should be a number or a string of digits.")
-
-    if birthday and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", birthday):
-        raise TypeError("Invalid birthday format. Please use YYYY-MM-DD.")
     
-    if name in address_book.data:
-        address_book.data[name].add_phone(phone)
-        if birthday:
-            address_book.data[name].birthday = Birthday(birthday)
+    phone = ''.join(filter(str.isdigit, phone))  # Remove non-digit characters from phone number
+
+    if name in address_book:
+        address_book[name].add_phone(phone)
         return f"Phone number added to contact {name}."
     else:
-        record = Record(name, [phone], birthday)
-        address_book.add_record(record)
+        address_book.add_record(Record(name, [phone]))
         return f"Contact {name} added successfully."
 
-def change_phone(address_book, name, new_phone, new_birthday=None):
-    if not isinstance(name, str) or not (isinstance(new_phone, str) and new_phone.isdigit()):
-        raise TypeError("Invalid input types. Name should be a string, and the new phone number should be a number or a string of digits.")
 
-    if name not in address_book.data:
-        raise KeyError("No such contact found.")
-
-    record = address_book.data[name]
-
+def change_phone(address_book, name, phone):
+    if not isinstance(name, str) or not (isinstance(phone, str) and phone.isdigit()):
+        raise TypeError
+    if name not in address_book:
+        raise KeyError
+    record = address_book[name]
     if record.phones:
-        record.edit_phone(new_phone, new_birthday)
+        old_phone = record.phones[0].value
+        record.edit_phone(old_phone, phone)
         return f"Phone number for {name} changed successfully."
     else:
         raise ValueError(f"No existing phone number for {name}.")
 
 def show_phone(address_book, name):
-    if name not in address_book.data:
-        raise KeyError("No such contact found.")
-
-    record = address_book.data[name]
-
+    if name not in address_book:
+        raise KeyError
+    record = address_book[name]
     phone_numbers = ", ".join([phone.value for phone in record.phones])
-    birthday_info = f" | Birthday: {record.birthday.value}" if record.birthday else ""
-    
-    return f"{name}: {phone_numbers}{birthday_info}"
+    return f"{name}: {phone_numbers}"
 
+def show_all(address_book):
+    return "\n".join([f"{record.name.value}: {', '.join([phone.value for phone in record.phones])}" 
+                      for records in address_book for record in records])
 
-def show_all(address_book, page=1):
-    page -= 1
-    records = list(address_book.iterator())
-    if page < len(records):
-        return "\n".join([f"{record.name.value}: {', '.join([phone.value for phone in record.phones])} | Birthday: {record.birthday.value if record.birthday else 'N/A'}"
-                          for record in records[page]])
-    else:
-        return "Page not found."
 
 
 def delete_contact(address_book, name):
@@ -201,44 +193,25 @@ def handle_command(command, contacts=None):
 
     if cmd == "hello":
         return "How can I help you?"
-    
+    elif cmd == "show" and len(parts) == 2 and parts[1] == "all":
+        return show_all(contacts)
+    elif cmd in ["add", "change"] and len(parts) != 3:
+        raise ValueError("Invalid input. Please enter command, name and phone number.")
     elif cmd == "add":
-        if len(parts) == 3:
-            try:
-                return add_contact(contacts, parts[1], parts[2])
-            except TypeError:
-                return "Invalid input types. Name should be a string and phone number should be a number or a string of digits."
-        elif len(parts) == 4:
-            try:
-                return add_contact(contacts, parts[1], parts[2], parts[3])
-            except TypeError:
-                return "Invalid input types. Name should be a string, phone number should be a number or a string of digits, and birthday should be in the format YYYY-MM-DD."
-        else:
-            return "Invalid input. Please enter command, name, phone number, and optional birthday in the format YYYY-MM-DD."
-    elif cmd == "change" and len(parts) in [3, 4]:
-        try:
-            if len(parts) == 4:
-                return change_phone(contacts, parts[1], parts[2], parts[3])
-            else:
-                return change_phone(contacts, parts[1], parts[2])
-        except ValueError as e:
-            return str(e)
+        return add_contact(contacts, parts[1], parts[2])
+    elif cmd == "change":
+        return change_phone(contacts, parts[1], parts[2])
     elif cmd == "phone":
         return show_phone(contacts, parts[1])
     elif cmd == "find":
         return show_phone(contacts, parts[1])
     elif cmd == "delete" and len(parts) == 2:
         return delete_contact(contacts, parts[1])
-    elif cmd == "show" and len(parts) == 3 and parts[1] == "all":
-        try:
-            page = int(parts[2])
-            return show_all(contacts, page)
-        except ValueError:
-            return "Invalid page number. Please enter an integer."
-    elif cmd == "show" and len(parts) == 2:
-        return "Please enter page number."
-    else: 
-        return "Unknown command."
+    elif cmd == "show" and len(parts) == 2 and parts[1] == "all":
+        return show_all(contacts)
+    else:
+        raise ValueError("Invalid command")
+
 
 def main():
     address_book = AddressBook()
