@@ -1,5 +1,6 @@
 import re
 from collections import UserDict
+from datetime import datetime
 
 class Field:
     def __init__(self, value):
@@ -16,41 +17,41 @@ class Field:
 
     @staticmethod
     def validate(value):
-        pass  # Implement validation logic in subclasses
+        pass  
 
 class Name(Field):
     pass
 
 class Birthday(Field):
     def __init__(self, value):
-        self.__value = value
         self.validate()
         super().__init__(value)
 
-    def validate(self):
-        try:
-            datetime.strptime(self.__value, '%Y-%m-%d')
-        except ValueError:
-            raise ValueError("Invalid date format. Please use YYYY-MM-DD.")
-
     @Field.value.setter
     def value(self, new_value):
-        self.__value = new_value
         self.validate()
+        super(Birthday, Birthday).value.__set__(self, new_value)
+
+    def validate(self):
+        try:
+            datetime.strptime(self.value, '%Y-%m-%d')
+        except ValueError:
+            raise ValueError("Invalid date format. Please use YYYY-MM-DD.")
 
 class Phone(Field):
     def __init__(self, value):
         super().__init__(value)
         self.validate()
 
+    @Field.value.setter
+    def value(self, new_value):
+        super(Phone, Phone).value.__set__(self, new_value)
+        self.validate()
+
     def validate(self):
         if not re.fullmatch(r"\d{10}", self.value):
             raise ValueError("Phone number must have 10 digits")
 
-    @Field.value.setter
-    def value(self, new_value):
-        self.__value = new_value
-        self.validate()
 
 
 class Record:
@@ -72,10 +73,10 @@ class Record:
     def edit_phone(self, old_phone, new_phone):
         for p in self.phones:
             if p.value == old_phone:
-                p.value = Phone(new_phone).value
+                p._Field__value = new_phone  
+                p.validate()
                 return True
         raise ValueError("The old phone number does not exist.")
-
     def find_phone(self, phone):
         for p in self.phones:
             if p.value == phone:
@@ -140,7 +141,7 @@ def add_contact(address_book, name, phone):
     if not isinstance(name, str) or not (isinstance(phone, str) and phone.isdigit()):
         raise TypeError("Invalid input types. Name should be a string and phone number should be a number or a string of digits.")
     
-    phone = ''.join(filter(str.isdigit, phone))  # Remove non-digit characters from phone number
+    phone = ''.join(filter(str.isdigit, phone))
 
     if name in address_book:
         address_book[name].add_phone(phone)
