@@ -24,13 +24,8 @@ class Name(Field):
 
 class Birthday(Field):
     def __init__(self, value):
-        self.validate()
         super().__init__(value)
-
-    @Field.value.setter
-    def value(self, new_value):
         self.validate()
-        super(Birthday, Birthday).value.__set__(self, new_value)
 
     def validate(self):
         try:
@@ -43,14 +38,10 @@ class Phone(Field):
         super().__init__(value)
         self.validate()
 
-    @Field.value.setter
-    def value(self, new_value):
-        super(Phone, Phone).value.__set__(self, new_value)
-        self.validate()
-
     def validate(self):
         if not re.fullmatch(r"\d{10}", self.value):
             raise ValueError("Phone number must have 10 digits")
+
 
 
 
