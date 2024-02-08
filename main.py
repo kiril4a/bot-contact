@@ -1,6 +1,7 @@
 import re
 from collections import UserDict
 from datetime import datetime
+import json
 
 class Field:
     def __init__(self, value):
@@ -41,7 +42,6 @@ class Phone(Field):
     def validate(self):
         if not re.fullmatch(r"\d{10}", self.value):
             raise ValueError("Phone number must have 10 digits")
-
 
 
 
@@ -102,15 +102,43 @@ class AddressBook(UserDict):
             self.data[record.name.value] = record
         else:
             raise ValueError("Invalid record type")
-    
+
     def delete(self, name):
         if name in self.data:
             del self.data[name]
             return True
         return False
 
-    def find(self, name):
-        return self.data.get(name)
+    def find(self, search_str):
+        results = []
+        for record in self.data.values():
+            if (
+                search_str.lower() in record.name.value.lower()
+                or any(search_str.lower() in phone.value.lower() for phone in record.phones)
+            ):
+                results.append(record)
+        return results
+
+
+    def save_to_file(self, filename):
+        with open(filename, "w") as file:
+            for name, record in self.data.items():
+                data = {
+                    "name": record.name.value,
+                    "phones": [phone.value for phone in record.phones],
+                    "birthday": record.birthday.value if record.birthday else None
+                }
+                file.write(json.dumps(data) + "\n")
+
+    def load_from_file(self, filename):
+        with open(filename, "r") as file:
+            self.data = {}
+            for line in file:
+                data = json.loads(line.strip())
+                name = data["name"]
+                phones = data.get("phones", [])
+                birthday = data.get("birthday")
+                self.data[name] = Record(name=name, phones=phones, birthday=birthday)
 
 def input_error(func):
     def inner(*args, **kwargs):
@@ -154,6 +182,14 @@ def change_phone(address_book, name, phone):
         return f"Phone number for {name} changed successfully."
     else:
         raise ValueError(f"No existing phone number for {name}.")
+    
+def search_contacts(address_book, search_str):
+    results = address_book.find(search_str)
+    if results:
+        return "\n".join([f"{record.name.value}: {', '.join([phone.value for phone in record.phones])}" for record in results])
+    else:
+        return f"No contacts found for '{search_str}'."
+
 
 def show_phone(address_book, name):
     if name not in address_book:
@@ -188,7 +224,7 @@ def handle_command(command, contacts=None):
     elif cmd == "show" and len(parts) == 2 and parts[1] == "all":
         return show_all(contacts)
     elif cmd in ["add", "change"] and len(parts) != 3:
-        raise ValueError("Invalid input. Please enter command, name and phone number.")
+        raise ValueError("Invalid input. Please enter command, name, and phone number.")
     elif cmd == "add":
         return add_contact(contacts, parts[1], parts[2])
     elif cmd == "change":
@@ -196,7 +232,7 @@ def handle_command(command, contacts=None):
     elif cmd == "phone":
         return show_phone(contacts, parts[1])
     elif cmd == "find":
-        return show_phone(contacts, parts[1])
+        return search_contacts(contacts, ' '.join(parts[1:]))
     elif cmd == "delete" and len(parts) == 2:
         return delete_contact(contacts, parts[1])
     elif cmd == "show" and len(parts) == 2 and parts[1] == "all":
@@ -207,9 +243,15 @@ def handle_command(command, contacts=None):
 
 def main():
     address_book = AddressBook()
+    try:
+        address_book.load_from_file("address_book.txt")
+    except FileNotFoundError:
+        print("No existing data file found. Starting with an empty address book.")
+
     while True:
         command = input("Enter your command: ")
         if command.lower() in ["good bye", "close", "exit"]:
+            address_book.save_to_file("address_book.txt")
             print("Good bye!")
             break
         try:
@@ -217,6 +259,7 @@ def main():
             print(response)
         except Exception as e:
             print(e)
+
 
 if __name__ == "__main__":
     main()
